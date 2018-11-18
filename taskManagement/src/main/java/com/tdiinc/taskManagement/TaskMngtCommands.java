@@ -29,6 +29,7 @@ import org.springframework.shell.standard.ShellOption;
 
 /**
  * @author hbensaid
+ * @email hedi.bensaid@gmail.com
  */
 @ShellComponent
 public class TaskMngtCommands {
@@ -40,7 +41,7 @@ public class TaskMngtCommands {
 
     private final PrintStream out = System.out;
 
-    //TODO display urgent tasks with another colour
+    //TODO display urgent tasks with another colour (this can be done only on unix like systems
     //TODO add the possibility to specify tags
     //TODO correct the display of special characters in the output
     //TODO add the Age column
@@ -160,9 +161,7 @@ public class TaskMngtCommands {
             traceTextWithColour(textToLog, textColour);
         }
         out.println("");
-        //out.print(ANSI_YELLOW);
         out.println(iTask + " tasks.");
-        //out.print(ANSI_RESET);
 
     }
 
@@ -373,9 +372,4 @@ public class TaskMngtCommands {
         return "y".equalsIgnoreCase(line);
     }
 
-    public static void main(String[] args) {
-        TaskMngtCommands commands = new TaskMngtCommands();
-        Date testDate = commands.computeToDayOfWeek("sunday");
-        System.out.println(testDate);
-    }
 }
