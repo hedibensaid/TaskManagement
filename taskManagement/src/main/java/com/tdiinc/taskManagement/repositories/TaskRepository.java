@@ -17,7 +17,10 @@ public interface TaskRepository extends CrudRepository<Task, Long> {
     List<Task> findBeforeDueDate(@Param("dueDate") Date dueDate);
 
     @Query("SELECT t FROM Task t WHERE upper(t.description) like %:searchStr% and t.status=0")
-    List<Task> searchInTasks(@Param("searchStr") String searchStr);
+    List<Task> searchInTasks(@Param("searchStr") String searchStr); 
+
+    @Query("SELECT t FROM Task t WHERE upper(t.description) like %:searchStr%")
+    List<Task> searchInAllTasks(@Param("searchStr") String searchStr);
 
     List<Task> findByStatusOrderByDueDateAsc(TaskStatus status);
     

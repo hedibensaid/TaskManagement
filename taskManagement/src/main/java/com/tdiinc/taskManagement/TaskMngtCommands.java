@@ -49,35 +49,8 @@ public class TaskMngtCommands {
     @ShellMethod("Display Tasks")
     public void list() {
 
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "ID", "Description", "Due Date"), AnsiColor.BRIGHT_CYAN);
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "---------------", "---------------", "---------------"), AnsiColor.BRIGHT_CYAN);
-        Iterable<Task> iterable = taskRepository.findByStatusOrderByDueDateAsc(TaskStatus.Pending);
-        int iTask = 0;
-        for (Task oneTask : iterable) {
-            iTask++;
-            String textToLog = "";
-            AnsiColor textColour = AnsiColor.DEFAULT;
-            String taskDescription = null;
-            if (oneTask.getComments().size() > 0) {
-                taskDescription = "(" + oneTask.getComments().size() + ")" + oneTask.getDescription();
-
-            } else {
-                taskDescription = oneTask.getDescription();
-
-            }
-            if (taskDescription.length() > 100) {
-                taskDescription = taskDescription.substring(0, 95) + "...";
-            }
-            textToLog = String.format("%-20s %-100s%-20s", oneTask.getTaskId(), taskDescription, oneTask.getDueDate());
-
-            if (oneTask.getDueDate().compareTo(new Date()) <= 0) {
-                textColour = AnsiColor.RED;
-            }
-
-            traceTextWithColour(textToLog, textColour);
-        }
-        out.println("");
-        out.println(iTask + " tasks.");
+        List<Task> tasks = taskRepository.findByStatusOrderByDueDateAsc(TaskStatus.Pending);
+        printTasks(tasks);
     }
 
     @ShellMethod("Search in Tasks")
@@ -85,36 +58,17 @@ public class TaskMngtCommands {
 
         List<Task> tasks = taskRepository.searchInTasks(criteria.toUpperCase());
 
-        int iTask = 0;
-
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "ID", "Description", "Due Date"), AnsiColor.BRIGHT_CYAN);
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "---------------", "---------------", "---------------"), AnsiColor.BRIGHT_CYAN);
-        for (Task oneTask : tasks) {
-            iTask++;
-            String textToLog = "";
-            AnsiColor textColour = AnsiColor.DEFAULT;
-            String taskDescription = null;
-            if (oneTask.getComments().size() > 0) {
-                taskDescription = "(" + oneTask.getComments().size() + ")" + oneTask.getDescription();
-
-            } else {
-                taskDescription = oneTask.getDescription();
-
-            }
-            if (taskDescription.length() > 100) {
-                taskDescription = taskDescription.substring(0, 95) + "...";
-            }
-            textToLog = String.format("%-20s %-100s%-20s", oneTask.getTaskId(), taskDescription, oneTask.getDueDate());
-
-            if (oneTask.getDueDate().compareTo(new Date()) <= 0) {
-                textColour = AnsiColor.RED;
-            }
-
-            traceTextWithColour(textToLog, textColour);
-        }
-        out.println("");
-        out.println(iTask + " tasks.");
+        printTasks(tasks);
     }
+
+    @ShellMethod("Search in Tasks")
+    public void grepAll(String criteria) {
+
+        List<Task> tasks = taskRepository.searchInAllTasks(criteria.toUpperCase());
+
+        printTasks(tasks);
+    }
+
 
     @ShellMethod("Display Tasks for a given date")
     public void listDay(@ShellOption(defaultValue = "TODAY") String dueDateStr) {
@@ -133,35 +87,7 @@ public class TaskMngtCommands {
 
         List<Task> tasks = taskRepository.findBeforeDueDate(searchDate);
 
-        int iTask = 0;
-
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "ID", "Description", "Due Date"), AnsiColor.BRIGHT_CYAN);
-        traceTextWithColour(String.format("%-20s %-100s%-20s", "---------------", "---------------", "---------------"), AnsiColor.BRIGHT_CYAN);
-        for (Task oneTask : tasks) {
-            iTask++;
-            String textToLog = "";
-            AnsiColor textColour = AnsiColor.DEFAULT;
-            String taskDescription = null;
-            if (oneTask.getComments().size() > 0) {
-                taskDescription = "(" + oneTask.getComments().size() + ")" + oneTask.getDescription();
-
-            } else {
-                taskDescription = oneTask.getDescription();
-
-            }
-            if (taskDescription.length() > 100) {
-                taskDescription = taskDescription.substring(0, 95) + "...";
-            }
-            textToLog = String.format("%-20s %-100s%-20s", oneTask.getTaskId(), taskDescription, oneTask.getDueDate());
-
-            if (oneTask.getDueDate().compareTo(new Date()) <= 0) {
-                textColour = AnsiColor.RED;
-            }
-
-            traceTextWithColour(textToLog, textColour);
-        }
-        out.println("");
-        out.println(iTask + " tasks.");
+        printTasks(tasks);
 
     }
 
@@ -291,8 +217,40 @@ public class TaskMngtCommands {
         }
     }
 
+    private void printTasks(List<Task> tasks) {
+        int iTask = 0;
+
+        traceTextWithColour(String.format("%-20s %-100s%-20s %-20s", "ID", "Description", "Due Date", "status"), AnsiColor.BRIGHT_CYAN);
+        traceTextWithColour(String.format("%-20s %-100s%-20s %-20s", "---------------", "---------------", "---------------", "---------------"), AnsiColor.BRIGHT_CYAN);
+        for (Task oneTask : tasks) {
+            iTask++;
+            String textToLog;
+            AnsiColor textColour = AnsiColor.DEFAULT;
+            String taskDescription;
+            if (oneTask.getComments().size() > 0) {
+                taskDescription = "(" + oneTask.getComments().size() + ")" + oneTask.getDescription();
+
+            } else {
+                taskDescription = oneTask.getDescription();
+
+            }
+            if (taskDescription.length() > 100) {
+                taskDescription = taskDescription.substring(0, 95) + "...";
+            }
+            textToLog = String.format("%-20s %-100s%-20s %-20s", oneTask.getTaskId(), taskDescription, oneTask.getDueDate(), oneTask.getStatus().name());
+
+            if (oneTask.getDueDate().compareTo(new Date()) <= 0) {
+                textColour = AnsiColor.RED;
+            }
+
+            traceTextWithColour(textToLog, textColour);
+        }
+        out.println("");
+        out.println(iTask + " tasks.");
+    }
+
     private Date computeDueDate(String dueDate) {
-        Date computedDay = null;
+        Date computedDay;
         dueDate = dueDate.toUpperCase();
         switch (dueDate) {
             case "TODAY":
@@ -340,7 +298,7 @@ public class TaskMngtCommands {
 
         c.add(Calendar.DAY_OF_MONTH, 1);
 
-        while (getDayOfWeek(c.getTime()).toString() == null ? dueDate.toUpperCase() != null : !getDayOfWeek(c.getTime()).toString().equals(dueDate.toUpperCase())) {
+        while (getDayOfWeek(c.getTime()).toString() == null ? dueDate != null : !getDayOfWeek(c.getTime()).toString().equals(dueDate.toUpperCase())) {
             c.add(Calendar.DAY_OF_MONTH, 1);
         }
 
