@@ -18,6 +18,7 @@ import com.tdiinc.taskManagement.model.Task;
 import com.tdiinc.taskManagement.model.TaskStatus;
 import com.tdiinc.taskManagement.repositories.TaskRepository;
 
+import com.tdiinc.taskManagement.utils.DateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,8 @@ import org.springframework.boot.ansi.AnsiOutput;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
+
+import javax.annotation.Resource;
 
 /**
  * @author hbensaid
@@ -38,6 +41,9 @@ public class TaskMngtCommands {
 
     @Autowired
     private TaskRepository taskRepository;
+
+    @Resource(name = "dateUtil")
+    private DateUtil dateUtil;
 
     private final PrintStream out = System.out;
 
@@ -74,7 +80,7 @@ public class TaskMngtCommands {
     public void listDay(@ShellOption(defaultValue = "TODAY") String dueDateStr) {
         Date dueDate = new Date();
         if (dueDateStr != null && !"".equals(dueDateStr)) {
-            dueDate = computeDueDate(dueDateStr);
+            dueDate = dateUtil.computeDueDate(dueDateStr);
         }
 
         Calendar cal = Calendar.getInstance();
@@ -83,7 +89,7 @@ public class TaskMngtCommands {
         int month = cal.get(Calendar.MONTH) + 1;
         int year = cal.get(Calendar.YEAR);
 
-        Date searchDate = parseDate(day + "/" + month + "/" + year);
+        Date searchDate = dateUtil.parseDate(day + "/" + month + "/" + year);
 
         List<Task> tasks = taskRepository.findBeforeDueDate(searchDate);
 
@@ -107,7 +113,7 @@ public class TaskMngtCommands {
 
         Date dueDate = new Date();
         if (dueDateStr != null && !"".equals(dueDateStr)) {
-            dueDate = computeDueDate(dueDateStr);
+            dueDate = dateUtil.computeDueDate(dueDateStr);
         }
 
         Task task = new Task(description, dueDate);
@@ -157,7 +163,7 @@ public class TaskMngtCommands {
                 if (task != null) {
                     Date newDate = new Date();
                     if (dueDateStr != null && !"".equals(dueDateStr)) {
-                        newDate = computeDueDate(dueDateStr);
+                        newDate = dateUtil.computeDueDate(dueDateStr);
                     }
                     task.setDueDate(newDate);
                     taskRepository.save(task);
@@ -247,81 +253,6 @@ public class TaskMngtCommands {
         }
         out.println("");
         out.println(iTask + " tasks.");
-    }
-
-    private Date computeDueDate(String dueDate) {
-        Date computedDay;
-        dueDate = dueDate.toUpperCase();
-        switch (dueDate) {
-            case "TODAY":
-                computedDay = new Date();
-                break;
-            case "MONDAY":
-            case "TUESDAY":
-            case "WEDNESDAY":
-            case "THURSDAY":
-            case "FRIDAY":
-            case "SATURDAY":
-            case "SUNDAY":
-                computedDay = computeToDayOfWeek(dueDate);
-                break;
-            case "TOMORROW":
-                computedDay = computeToNextDayOfWeek();
-                break;
-            case "NEXTWEEK":
-                computedDay = computeToDayOfWeek("MONDAY");
-                break;
-            default:
-                computedDay = parseDate(dueDate);
-        }
-
-        return computedDay;
-    }
-
-
-    private Date computeToNextDayOfWeek() {
-
-        Date currentDate = new Date();
-        Calendar c = Calendar.getInstance();
-        c.setTime(currentDate);
-
-        c.add(Calendar.DAY_OF_MONTH, 1);
-
-        return c.getTime();
-    }
-
-    private Date computeToDayOfWeek(String dueDate) {
-
-        Date currentDate = new Date();
-        Calendar c = Calendar.getInstance();
-        c.setTime(currentDate);
-
-        c.add(Calendar.DAY_OF_MONTH, 1);
-
-        while (getDayOfWeek(c.getTime()).toString() == null ? dueDate != null : !getDayOfWeek(c.getTime()).toString().equals(dueDate.toUpperCase())) {
-            c.add(Calendar.DAY_OF_MONTH, 1);
-        }
-
-        return c.getTime();
-    }
-
-    private DayOfWeek getDayOfWeek(Date refDate) {
-        LocalDate today = refDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-        return today.getDayOfWeek();
-    }
-
-    /**
-     * parse the date of pattern [dd/MM/yyyy][dd-MM-yyyy]
-     *
-     * @param dueDate
-     * @return
-     */
-    private Date parseDate(String dueDate) {
-        Date computedDay;
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("[dd/MM/yyyy][dd-MM-yyyy]");
-        LocalDate realDueDate = LocalDate.parse(dueDate, formatter);
-        computedDay = Date.from(realDueDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        return computedDay;
     }
 
     private boolean confirm() throws IOException {
