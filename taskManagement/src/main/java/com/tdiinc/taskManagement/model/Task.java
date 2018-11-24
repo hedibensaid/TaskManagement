@@ -1,14 +1,11 @@
 package com.tdiinc.taskManagement.model;
 
-import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-@Entity
 public class Task {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long taskId;
 
     private String description;
@@ -16,11 +13,6 @@ public class Task {
     private Date completeDate;
     private Date creationDate;
 
-    //    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-//    @JoinColumn(name = "fk_task")
-//    private List<Tag> tags;
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "fk_task")
     private List<Comment> comments;
 
     private String project;
@@ -29,12 +21,11 @@ public class Task {
     private TaskStatus status;
 
     public Task() {
-        //tags = new ArrayList<>();
+        comments = new ArrayList<>();
     }
 
     public Task(String description, Date dueDate) {
         super();
-        //tags = new ArrayList<>();
         this.description = description;
         this.dueDate = dueDate;
         this.status = TaskStatus.Pending;
@@ -65,13 +56,6 @@ public class Task {
         this.dueDate = dueDate;
     }
 
-    //    public List<Tag> getTags() {
-//        return tags;
-//    }
-//
-//    public void setTags(List<Tag> tags) {
-//        this.tags = tags;
-//    }
     public TaskPriority getPriority() {
         return priority;
     }
@@ -140,10 +124,13 @@ public class Task {
         this.comments = comments;
     }
 
+    public void setTaskId(Long taskId) {
+        this.taskId = taskId;
+    }
+
     @Override
     public String toString() {
         return "taskId=" + taskId + ", description=" + description + ", dueDate=" + dueDate;
     }
-
 
 }

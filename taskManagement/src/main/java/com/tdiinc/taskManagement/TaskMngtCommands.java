@@ -4,21 +4,17 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.PrintStream;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import com.tdiinc.taskManagement.model.Comment;
 import com.tdiinc.taskManagement.model.Task;
+import com.tdiinc.taskManagement.model.TaskDB;
 import com.tdiinc.taskManagement.model.TaskStatus;
-import com.tdiinc.taskManagement.repositories.TaskRepository;
 
+import com.tdiinc.taskManagement.services.TaskService;
 import com.tdiinc.taskManagement.utils.DateUtil;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,10 +36,13 @@ public class TaskMngtCommands {
     private static final Logger log = LoggerFactory.getLogger(TaskMngtCommands.class);
 
     @Autowired
-    private TaskRepository taskRepository;
+    private TaskService taskService;
 
     @Resource(name = "dateUtil")
     private DateUtil dateUtil;
+
+    @Resource(name = "taskDB")
+    private TaskDB taskDB;
 
     private final PrintStream out = System.out;
 
@@ -51,30 +50,34 @@ public class TaskMngtCommands {
     //TODO add the possibility to specify tags
     //TODO correct the display of special characters in the output
     //TODO add the Age column
-
     @ShellMethod("Display Tasks")
     public void list() {
-
-        List<Task> tasks = taskRepository.findByStatusOrderByDueDateAsc(TaskStatus.Pending);
+        List<Task> tasks = new ArrayList<>(taskService.getPendingTasks().values());
+        tasks.sort((task1, task2) -> task1.getDueDate().compareTo(task2.getDueDate()));
         printTasks(tasks);
     }
 
     @ShellMethod("Search in Tasks")
     public void grep(String criteria) {
 
-        List<Task> tasks = taskRepository.searchInTasks(criteria.toUpperCase());
-
+        Collection<Task> tasks = taskService.getPendingTasks().values().
+                stream().filter(task -> StringUtils.containsIgnoreCase(task.getDescription(), criteria)).collect(Collectors.toList());
         printTasks(tasks);
     }
 
     @ShellMethod("Search in Tasks")
     public void grepAll(String criteria) {
 
-        List<Task> tasks = taskRepository.searchInAllTasks(criteria.toUpperCase());
+        Collection<Task> allTasks = new ArrayList<>();
+        allTasks.addAll(taskService.getPendingTasks().values());
+        allTasks.addAll(taskDB.getCompletedTasks());
+        allTasks.addAll(taskDB.getCanceledTasks());
+
+        Collection<Task> tasks = allTasks.
+                stream().filter(task -> StringUtils.containsIgnoreCase(task.getDescription(), criteria)).collect(Collectors.toList());
 
         printTasks(tasks);
     }
-
 
     @ShellMethod("Display Tasks for a given date")
     public void listDay(@ShellOption(defaultValue = "TODAY") String dueDateStr) {
@@ -91,7 +94,9 @@ public class TaskMngtCommands {
 
         Date searchDate = dateUtil.parseDate(day + "/" + month + "/" + year);
 
-        List<Task> tasks = taskRepository.findBeforeDueDate(searchDate);
+        List<Task> tasks = taskService.getPendingTasks().values().
+                stream().filter(task -> task.getDueDate().compareTo(searchDate) <= 0).collect(Collectors.toList());
+        tasks.sort((task1, task2) -> task1.getDueDate().compareTo(task2.getDueDate()));
 
         printTasks(tasks);
 
@@ -117,17 +122,15 @@ public class TaskMngtCommands {
         }
 
         Task task = new Task(description, dueDate);
-        taskRepository.save(task);
+        taskService.addPendingTask(task);
         out.println(task);
     }
 
     @ShellMethod("Complete Task")
     public void complete(Long taskId) {
-        Task task = taskRepository.findByTaskId(taskId);
+        Task task = taskService.getPendingTasks().get(taskId);
         if (task != null) {
-            task.setStatus(TaskStatus.Closed);
-            task.setCompleteDate(new Date());
-            taskRepository.save(task);
+            taskService.completeTask(task);
             out.println(task);
             out.println("completed");
         } else {
@@ -139,13 +142,13 @@ public class TaskMngtCommands {
     public void cancel(Long taskId) {
         try {
             if (confirm()) {
-                Task task = taskRepository.findByTaskId(taskId);
+                Task task = taskService.getPendingTasks().get(taskId);
                 if (task != null) {
                     task.setStatus(TaskStatus.Canceled);
                     task.setCompleteDate(new Date());
-                    taskRepository.save(task);
+                    taskService.cancelTask(task);
                     out.println(task);
-                    out.println("completed");
+                    out.println("canceled");
                 } else {
                     out.println("No task with id:'" + taskId + "' found!!");
                 }
@@ -159,14 +162,14 @@ public class TaskMngtCommands {
     public void postpone(Long taskId, String dueDateStr) {
         try {
             if (confirm()) {
-                Task task = taskRepository.findByTaskId(taskId);
+                Task task = taskService.getPendingTasks().get(taskId);
                 if (task != null) {
                     Date newDate = new Date();
                     if (dueDateStr != null && !"".equals(dueDateStr)) {
                         newDate = dateUtil.computeDueDate(dueDateStr);
                     }
                     task.setDueDate(newDate);
-                    taskRepository.save(task);
+                    taskService.synchronizeToFile();
                     out.println(task);
                     out.println("dueDate:" + task.getDueDate());
                 } else {
@@ -178,17 +181,16 @@ public class TaskMngtCommands {
         }
     }
 
-
     @ShellMethod("Add Comment to Task")
     public void comment(Long taskId, String textComment) {
 
-        Task task = taskRepository.findByTaskId(taskId);
+        Task task = taskService.getPendingTasks().get(taskId);
         if (task != null) {
             Comment comment = new Comment();
             comment.setText(textComment);
             comment.setCreationDate(new Date());
             task.getComments().add(comment);
-            taskRepository.save(task);
+            taskService.synchronizeToFile();
             out.println(task);
             out.println("completed");
         } else {
@@ -198,7 +200,7 @@ public class TaskMngtCommands {
 
     @ShellMethod("Info of task")
     public void info(Long taskId) {
-        Task task = taskRepository.findByTaskId(taskId);
+        Task task = taskService.getPendingTasks().get(taskId);
         if (task != null) {
             out.println("task id:" + task.getTaskId());
             out.println("description:" + task.getDescription());
@@ -223,7 +225,7 @@ public class TaskMngtCommands {
         }
     }
 
-    private void printTasks(List<Task> tasks) {
+    private void printTasks(Collection<Task> tasks) {
         int iTask = 0;
 
         traceTextWithColour(String.format("%-20s %-100s%-20s %-20s", "ID", "Description", "Due Date", "status"), AnsiColor.BRIGHT_CYAN);
@@ -233,7 +235,7 @@ public class TaskMngtCommands {
             String textToLog;
             AnsiColor textColour = AnsiColor.DEFAULT;
             String taskDescription;
-            if (oneTask.getComments().size() > 0) {
+            if (oneTask.getComments() != null && oneTask.getComments().size() > 0) {
                 taskDescription = "(" + oneTask.getComments().size() + ")" + oneTask.getDescription();
 
             } else {
