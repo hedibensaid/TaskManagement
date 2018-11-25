@@ -2,6 +2,7 @@ package com.tdiinc.taskManagement.services.impl;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.tdiinc.taskManagement.model.Comment;
 import com.tdiinc.taskManagement.model.Task;
 import com.tdiinc.taskManagement.model.TaskDB;
 import com.tdiinc.taskManagement.model.TaskStatus;
@@ -13,7 +14,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,7 +32,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public void addPendingTask(Task pendingTask) {
-        taskDB.setSequenceId(taskDB.getSequenceId()+1);
+        taskDB.setSequenceId(taskDB.getSequenceId() + 1);
         pendingTask.setTaskId((long) taskDB.getSequenceId());
         taskDB.getPendingTasks().put(pendingTask.getTaskId(), pendingTask);
         synchronizeToFile();
@@ -57,7 +60,6 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public Map<Long, Task> getPendingTasks() {
-        //TODO list should ordered by date
         return taskDB.getPendingTasks();
     }
 
@@ -70,12 +72,31 @@ public class TaskServiceImpl implements TaskService {
         Gson gson = builder.create();
 
         Path path = Paths.get(jsonFilePath);
-        
+
         try {
             Files.write(path, gson.toJson(taskDB).getBytes());
         } catch (IOException ex) {
             Logger.getLogger(TaskServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
+    }
+
+    /**
+     * Add comment to the given Task
+     *
+     * @param commentStr
+     * @param task
+     */
+    @Override
+    public void addComment(String commentStr, Task task) {
+        List<Comment> comments = task.getComments();
+        if (comments == null) {
+            comments = new ArrayList<Comment>();
+        }
+        Comment comment = new Comment();
+        comment.setText(commentStr);
+        comment.setCreationDate(new Date());
+        comments.add(comment);
+        task.setComments(comments);
     }
 }
