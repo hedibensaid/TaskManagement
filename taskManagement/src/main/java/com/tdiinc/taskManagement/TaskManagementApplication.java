@@ -35,6 +35,11 @@ public class TaskManagementApplication {
         return userHomeFolder + "/tasks" + "/" + "data.json";
     }
 
+    /**
+     * Initializes the tasks Repository in memory
+     * And creates the required files for the project in case they are not created yet
+     * @return
+     */
     @Bean(name = "taskDB")
     public TaskDB getTaskDB() {
         initDataFolder();
@@ -45,13 +50,16 @@ public class TaskManagementApplication {
             String content = new String(Files.readAllBytes(Paths.get(getJSONFilePath())));
             return (gson.fromJson(content, TaskDB.class));
         } catch (IOException e) {
-            e.printStackTrace();
+        	log.error(e.getMessage());
         }
 
         return null;
 
     }
 
+    /**
+     * Initializes the required files for the project in case they are not created yet
+     */
     private void initDataFolder() {
         String userHomeFolder = System.getProperty("user.home");
 
